@@ -50,6 +50,7 @@ FONT_CG_PIXEL_3X5 = "CG-pixel-3x5-mono"
 # Screen constants
 SCREEN_WIDTH = 64  # Display width in pixels
 PLAYER_COUNT_HEIGHT = 6  # Height of player count display in pixels
+CHAR_WIDTH = 4  # Character width in pixels for tom-thumb and CG-pixel-3x5-mono fonts
 
 def main(config):
     show_player_count = config.bool("show_player_count", True)
@@ -356,9 +357,17 @@ def render_event(event, second_offset, is_paused = False):
     map_name = event["map"]
     event_name = event["name"]
 
-    # During pause and scroll-out: use marquee for scrolling long text
-    # During scroll-in: use static text
-    if is_paused:
+    # Calculate usable width (screen width minus left and right padding)
+    usable_width = SCREEN_WIDTH - 4  # 2px padding on each side
+
+    # Check if text is too long for screen (needs marquee)
+    map_needs_marquee = len(map_name) * CHAR_WIDTH > usable_width
+    event_needs_marquee = len(event_name) * CHAR_WIDTH > usable_width
+    time_needs_marquee = len(time_str) * CHAR_WIDTH > usable_width
+
+    # During pause and scroll-out: use marquee only for long text
+    # During scroll-in: always use static text
+    if is_paused and map_needs_marquee:
         map_text = render.Marquee(
             width = SCREEN_WIDTH,
             offset_start = 0,
@@ -370,6 +379,14 @@ def render_event(event, second_offset, is_paused = False):
             ),
             scroll_direction = "horizontal",
         )
+    else:
+        map_text = render.Text(
+            content = map_name,
+            font = FONT_TOM_THUMB,
+            color = COLOR_WHITE,
+        )
+
+    if is_paused and event_needs_marquee:
         event_text = render.Marquee(
             width = SCREEN_WIDTH,
             offset_start = 0,
@@ -381,6 +398,14 @@ def render_event(event, second_offset, is_paused = False):
             ),
             scroll_direction = "horizontal",
         )
+    else:
+        event_text = render.Text(
+            content = event_name,
+            font = FONT_CG_PIXEL_3X5,
+            color = COLOR_YELLOW,
+        )
+
+    if is_paused and time_needs_marquee:
         time_text = render.Marquee(
             width = SCREEN_WIDTH,
             offset_start = 0,
@@ -393,17 +418,6 @@ def render_event(event, second_offset, is_paused = False):
             scroll_direction = "horizontal",
         )
     else:
-        # During scroll-in: static text
-        map_text = render.Text(
-            content = map_name,
-            font = FONT_TOM_THUMB,
-            color = COLOR_WHITE,
-        )
-        event_text = render.Text(
-            content = event_name,
-            font = FONT_CG_PIXEL_3X5,
-            color = COLOR_YELLOW,
-        )
         time_text = render.Text(
             content = time_str,
             font = FONT_CG_PIXEL_3X5,
