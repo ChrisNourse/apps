@@ -27,8 +27,8 @@ COLOR_CYAN = "#81EEE6"
 COLOR_WHITE = "#FFFFFF"
 
 # Cache TTL values (in seconds)
-PLAYER_CACHE_TTL = 600  # 10 minutes
-EVENTS_CACHE_TTL = 60  # 1 minute (short TTL to keep countdown accurate)
+PLAYER_CACHE_TTL = 600  # 10 minutes (http.get cache)
+EVENTS_CACHE_TTL = 60  # 1 minute (manual cache with event expiration validation)
 
 # Animation constants
 ANIMATION_SCROLL_STEPS = 10  # Number of frames for scroll in/out animation
@@ -79,11 +79,6 @@ def main(config):
 
 def get_player_count():
     """Fetch current player count from Steam API"""
-    cached_data = cache.get("arc_raiders_players")
-    if cached_data != None:
-        # Cache stores as string, convert to int
-        return int(cached_data)
-
     response = http.get(STEAM_API_URL, ttl_seconds = PLAYER_CACHE_TTL)
     if response.status_code != 200:
         return None
@@ -91,10 +86,6 @@ def get_player_count():
     data = response.json()
     if data != None and data.get("response") != None and data["response"].get("player_count") != None:
         player_count = int(data["response"]["player_count"])
-
-        # Store as string in cache
-        cache.set("arc_raiders_players", str(player_count), ttl_seconds = PLAYER_CACHE_TTL)
-
         return player_count
 
     return None
@@ -120,7 +111,7 @@ def get_current_events():
         if valid:
             return events
 
-    response = http.get(METAFORGE_API_URL, ttl_seconds = EVENTS_CACHE_TTL)
+    response = http.get(METAFORGE_API_URL)
     if response.status_code != 200:
         return None  # Return None to indicate API error
 
