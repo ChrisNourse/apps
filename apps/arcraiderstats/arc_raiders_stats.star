@@ -85,13 +85,11 @@ def get_player_count():
 
     response = http.get(STEAM_API_URL, ttl_seconds = PLAYER_CACHE_TTL)
     if response.status_code != 200:
-        print("[ARC RAIDERS] Failed to fetch player count from Steam API - Status: {}".format(response.status_code))
         return None
 
     data = response.json()
     if data != None and data.get("response") != None and data["response"].get("player_count") != None:
         player_count = int(data["response"]["player_count"])
-        print("[ARC RAIDERS] Successfully fetched player count: {}".format(player_count))
 
         # Store as string in cache
         cache.set("arc_raiders_players", str(player_count), ttl_seconds = PLAYER_CACHE_TTL)
@@ -120,28 +118,22 @@ def get_current_events():
                 break
         if valid:
             return events
-        else:
-            print("[ARC RAIDERS] Cached data is stale, fetching fresh data")
 
     response = http.get(METAFORGE_API_URL, ttl_seconds = EVENTS_CACHE_TTL)
     if response.status_code != 200:
-        print("[ARC RAIDERS] Failed to fetch events from MetaForge API - Status: {}".format(response.status_code))
         return None  # Return None to indicate API error
 
     response_data = response.json()
     if not response_data:
-        print("[ARC RAIDERS] Empty response from MetaForge API")
         return None  # Return None to indicate API error
 
     # The API returns {"data": [...]} structure
     events = response_data.get("data", [])
     if not events:
-        print("[ARC RAIDERS] No events data found in MetaForge API response")
         return []  # Return empty list - API worked but no events
 
     # Handle if events is not a list
     if type(events) != "list":
-        print("[ARC RAIDERS] Events response is not a list - Type: {}".format(type(events)))
         return None  # Return None to indicate API error
 
     # Get current time in UTC
@@ -207,7 +199,6 @@ def get_current_events():
                     })
                     break  # Only add each event once
 
-    print("[ARC RAIDERS] Successfully fetched events - Active: {}".format(len(active_events)))
     cache.set("arc_raiders_events", json.encode(active_events), ttl_seconds = EVENTS_CACHE_TTL)
     return active_events
 
