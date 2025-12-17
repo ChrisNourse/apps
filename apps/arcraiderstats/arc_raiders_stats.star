@@ -317,6 +317,32 @@ def generate_event_animation(events, header_height):
 
     return render.Animation(children = frames)
 
+def format_time_remaining(remaining_seconds):
+    """Format time remaining with improved readability for times over 60 minutes
+
+    Args:
+        remaining_seconds: Total seconds remaining
+
+    Returns:
+        Formatted string like "1h 20m" for >= 60min or "59m 30s" for < 60min
+    """
+    if remaining_seconds <= 0:
+        return "ended"
+
+    total_minutes = remaining_seconds // 60
+    seconds = remaining_seconds % 60
+
+    # For times >= 60 minutes, use hour and minute format
+    if total_minutes >= 60:
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        return "ends in %dh %dm" % (hours, minutes)
+
+    # For times < 60 minutes, use traditional minute and second format
+    min_str = "0" + str(total_minutes) if total_minutes < 10 else str(total_minutes)
+    sec_str = "0" + str(seconds) if seconds < 10 else str(seconds)
+    return "ends in %sm %ss" % (min_str, sec_str)
+
 def render_event(event, second_offset, is_paused = False):
     """Render a single event with marquee animation for long text during pause
 
@@ -334,13 +360,28 @@ def render_event(event, second_offset, is_paused = False):
     end_timestamp = event.get("end_timestamp", 0)
     remaining_seconds = end_timestamp - int(now.unix) - second_offset
 
-    # Format time with zero-padded two digits
+    # Format time optimized for 7-char limit "00x 00x" with maximum resolution
     if remaining_seconds > 0:
-        minutes = remaining_seconds // 60
+        total_minutes = remaining_seconds // 60
         seconds = remaining_seconds % 60
-        min_str = "0" + str(minutes) if minutes < 10 else str(minutes)
-        sec_str = "0" + str(seconds) if seconds < 10 else str(seconds)
-        time_str = "ends in %sm %ss" % (min_str, sec_str)
+        total_hours = total_minutes // 60
+        minutes = total_minutes % 60
+        days = total_hours // 24
+        hours = total_hours % 24
+
+        # Choose format based on what fits in 7 chars with best resolution
+        if total_hours >= 100:  # >= 100 hours, use days and hours
+            d_str = ("0" + str(days)) if days < 10 else str(days)
+            h_str = ("0" + str(hours)) if hours < 10 else str(hours)
+            time_str = "ends in %sd %sh" % (d_str, h_str)
+        elif total_minutes >= 100:  # >= 100 minutes, use hours and minutes
+            h_str = ("0" + str(total_hours)) if total_hours < 10 else str(total_hours)
+            m_str = ("0" + str(minutes)) if minutes < 10 else str(minutes)
+            time_str = "ends in %sh %sm" % (h_str, m_str)
+        else:  # < 100 minutes, use minutes and seconds
+            m_str = ("0" + str(total_minutes)) if total_minutes < 10 else str(total_minutes)
+            s_str = ("0" + str(seconds)) if seconds < 10 else str(seconds)
+            time_str = "ends in %sm %ss" % (m_str, s_str)
     else:
         time_str = "ended"
 
