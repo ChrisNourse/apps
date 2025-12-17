@@ -28,12 +28,13 @@ COLOR_WHITE = "#FFFFFF"
 
 # Cache TTL values (in seconds)
 PLAYER_CACHE_TTL = 600  # 10 minutes
-EVENTS_CACHE_TTL = 300  # 5 minutes
+EVENTS_CACHE_TTL = 60  # 1 minute (short TTL to keep countdown accurate)
 
 # Animation constants
 ANIMATION_SCROLL_STEPS = 10  # Number of frames for scroll in/out animation
-ANIMATION_PAUSE_FRAMES = 30  # Frames to pause (at 100ms = 3 seconds)
+ANIMATION_PAUSE_FRAMES = 30  # Frames to pause (30 frames at 100ms = 3 seconds)
 EVENT_CONTENT_HEIGHT = 18  # Height of event content (3 lines of text)
+FRAMES_PER_SECOND = 10  # At 100ms per frame, update countdown every 10 frames (1 second)
 
 # Scroll speed mapping (in milliseconds)
 SCROLL_SPEED_MAP = {
@@ -103,7 +104,20 @@ def get_current_events():
     """
     cached_data = cache.get("arc_raiders_events")
     if cached_data != None:
-        return json.decode(cached_data)
+        events = json.decode(cached_data)
+        # Validate cached data - check if any end_timestamp is in the past
+        now_utc = time.now().in_location("UTC")
+        valid = True
+        for event in events:
+            end_timestamp = event.get("end_timestamp", 0)
+            if end_timestamp > 0 and end_timestamp < int(now_utc.unix):
+                # Cached event has already ended, data is stale
+                valid = False
+                break
+        if valid:
+            return events
+        else:
+            print("[ARC RAIDERS] Cached data is stale, fetching fresh data")
 
     response = http.get(METAFORGE_API_URL, ttl_seconds = EVENTS_CACHE_TTL)
     if response.status_code != 200:
@@ -127,7 +141,7 @@ def get_current_events():
         return None  # Return None to indicate API error
 
     # Get current time in UTC
-    now_utc = time.now()
+    now_utc = time.now().in_location("UTC")
     current_hour = now_utc.hour
     current_minute = now_utc.minute
 
@@ -150,9 +164,23 @@ def get_current_events():
                 if is_event_active(current_hour, current_minute, start_time, end_time):
                     # Create a proper UTC datetime for the end time
                     # Determine if end time is tomorrow in UTC (for midnight-spanning events)
+                    start_minutes_utc = time_to_minutes(start_time["hour"], start_time["minute"])
                     end_minutes_utc = time_to_minutes(end_time["hour"], end_time["minute"])
                     current_minutes_utc = time_to_minutes(current_hour, current_minute)
-                    end_is_tomorrow_utc = end_minutes_utc <= current_minutes_utc
+
+                    # Check if event spans midnight
+                    if end_minutes_utc < start_minutes_utc:
+                        # Event spans midnight
+                        if current_minutes_utc >= start_minutes_utc:
+                            # We're in the pre-midnight portion, end is tomorrow
+                            end_is_tomorrow_utc = True
+                        else:
+                            # We're in the post-midnight portion, end is today
+                            end_is_tomorrow_utc = False
+                    else:
+                        # Normal event (doesn't span midnight)
+                        # For active events, end should be later today
+                        end_is_tomorrow_utc = False
 
                     # Build full UTC datetime for end time
                     end_day = now_utc.day + (1 if end_is_tomorrow_utc else 0)
@@ -165,25 +193,13 @@ def get_current_events():
                         location = "UTC",
                     )
 
-                    # Calculate time remaining in UTC (same for all players globally)
-                    remaining_seconds = (end_datetime_utc.unix - now_utc.unix)
-                    remaining_minutes = int(remaining_seconds / 60)
-
-                    # Format the time remaining string
-                    hours = remaining_minutes // 60
-                    minutes = remaining_minutes % 60
-                    if hours > 0:
-                        time_str = "{}hr".format(hours)
-                    else:
-                        time_str = "{}min".format(minutes)
-
-                    # Store event with pre-calculated time remaining
+                    # Store event with end timestamp (for live countdown at render time)
                     active_events.append({
                         "name": event.get("name", "Unknown"),
                         "map": event.get("map", "Unknown"),
                         "start": time_slot.get("start", ""),
                         "end": time_slot.get("end", ""),
-                        "time_remaining": "Ends in {}".format(time_str),
+                        "end_timestamp": int(end_datetime_utc.unix),  # Store unix timestamp
                     })
                     break  # Only add each event once
 
@@ -224,7 +240,7 @@ def is_event_active(current_hour, current_minute, start_time, end_time):
     return start_minutes <= current_minutes and current_minutes < end_minutes
 
 def generate_event_animation(events, header_height):
-    """Generate animation frames for events with scroll-pause-scroll effect
+    """Generate animation frames for events with scroll-pause-scroll effect and live countdown
 
     Args:
         events: List of event dictionaries
@@ -248,21 +264,23 @@ def generate_event_animation(events, header_height):
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event),
+                        child = render_event(event, 0),
                     ),
                 ),
             )
 
-        # Pause: display event statically
-        # Hold for ~3 seconds (ANIMATION_PAUSE_FRAMES frames at 100ms delay = 3s)
-        for _ in range(ANIMATION_PAUSE_FRAMES):
+        # Pause: display event with live countdown
+        # Generate frames with countdown updating every FRAMES_PER_SECOND frames
+        for frame_num in range(ANIMATION_PAUSE_FRAMES):
+            # Calculate which second this frame represents
+            second_offset = frame_num // FRAMES_PER_SECOND
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, header_height, 0, 0),
-                        child = render_event(event),
+                        child = render_event(event, second_offset),
                     ),
                 ),
             )
@@ -277,15 +295,35 @@ def generate_event_animation(events, header_height):
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event),
+                        child = render_event(event, 0),
                     ),
                 ),
             )
 
     return render.Animation(children = frames)
 
-def render_event(event):
-    """Render a single event with all text left-aligned within a globally centered group"""
+def render_event(event, second_offset):
+    """Render a single event with all text left-aligned within a globally centered group
+
+    Args:
+        event: Event dictionary with end_timestamp
+        second_offset: Number of seconds to subtract from remaining time (for countdown animation)
+
+    Calculates time remaining at render time for live countdown
+    """
+
+    # Calculate time remaining NOW (at render time) for live countdown
+    now = time.now().in_location("UTC")
+    end_timestamp = event.get("end_timestamp", 0)
+    remaining_seconds = end_timestamp - int(now.unix) - second_offset
+
+    # Format as "ends in Xm Xs"
+    if remaining_seconds > 0:
+        minutes = remaining_seconds // 60
+        seconds = remaining_seconds % 60
+        time_str = "ends in {}m {}s".format(minutes, seconds)
+    else:
+        time_str = "ended"
 
     # Wrap the column in a Box to globally center it while keeping text left-aligned within
     return render.Box(
@@ -309,7 +347,7 @@ def render_event(event):
                             color = COLOR_YELLOW,
                         ),
                         render.Text(
-                            content = event.get("time_remaining", ""),
+                            content = time_str,
                             font = FONT_CG_PIXEL_3X5,
                             color = COLOR_RED,
                         ),
