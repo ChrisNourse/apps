@@ -89,7 +89,7 @@ def get_player_count():
         return None
 
     data = response.json()
-    if data and data.get("response") and data["response"].get("player_count") != None:
+    if data != None and data.get("response") != None and data["response"].get("player_count") != None:
         player_count = int(data["response"]["player_count"])
         print("[ARC RAIDERS] Successfully fetched player count: {}".format(player_count))
 
