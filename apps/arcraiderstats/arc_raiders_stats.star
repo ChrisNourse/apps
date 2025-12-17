@@ -334,13 +334,13 @@ def render_event(event, second_offset, is_paused = False):
     end_timestamp = event.get("end_timestamp", 0)
     remaining_seconds = end_timestamp - int(now.unix) - second_offset
 
-    # Format as "XXmin XXsec" with zero-padded two digits
+    # Format time with zero-padded two digits
     if remaining_seconds > 0:
         minutes = remaining_seconds // 60
         seconds = remaining_seconds % 60
         min_str = "0" + str(minutes) if minutes < 10 else str(minutes)
         sec_str = "0" + str(seconds) if seconds < 10 else str(seconds)
-        time_str = "ends in {}m {}s".format(min_str, sec_str)
+        time_str = "ends in %sm %ss" % (min_str, sec_str)
     else:
         time_str = "ended"
 
@@ -439,14 +439,14 @@ def format_number(num):
 
     if num >= 1000:
         thousands = num / 1000.0
+        # Round to 1 decimal place by multiplying by 10, converting to int, then dividing by 10
+        rounded = int(thousands * 10) / 10.0
+        formatted = str(rounded)
 
-        # Format with 1 decimal place
-        formatted = str(int(thousands * 10) / 10.0)
-
-        # Remove unnecessary .0
+        # Remove unnecessary .0 suffix
         if formatted.endswith(".0"):
             formatted = formatted[:-2]
-        return "{}K".format(formatted)
+        return "%sK" % formatted
 
     return str(num)
 
