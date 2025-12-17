@@ -47,6 +47,9 @@ SCROLL_SPEED_MAP = {
 FONT_TOM_THUMB = "tom-thumb"
 FONT_CG_PIXEL_3X5 = "CG-pixel-3x5-mono"
 
+# Screen constants
+SCREEN_WIDTH = 64  # Display width in pixels
+
 def main(config):
     show_player_count = config.bool("show_player_count", True)
     show_events = config.bool("show_events", True)
@@ -265,22 +268,28 @@ def generate_event_animation(events, header_height):
             # Calculate seconds elapsed based on total frames
             seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
 
+            # Use static text during scroll-in
+            is_paused = False
+
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event, seconds_elapsed),
+                        child = render_event(event, seconds_elapsed, is_paused),
                     ),
                 ),
             )
             total_frame_count += 1
 
-        # Pause: display event with live countdown
-        for frame_num in range(ANIMATION_PAUSE_FRAMES):
+        # Pause: display event with live countdown and marquee for long text
+        for pause_frame_num in range(ANIMATION_PAUSE_FRAMES):
             # Calculate seconds elapsed based on total frames
             seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
+
+            # Marquee scrolling is active during pause
+            is_paused = True
 
             frames.append(
                 render.Box(
@@ -288,7 +297,7 @@ def generate_event_animation(events, header_height):
                     height = full_height,
                     child = render.Padding(
                         pad = (0, header_height, 0, 0),
-                        child = render_event(event, seconds_elapsed),
+                        child = render_event(event, seconds_elapsed, is_paused),
                     ),
                 ),
             )
@@ -302,13 +311,16 @@ def generate_event_animation(events, header_height):
             # Calculate seconds elapsed based on total frames
             seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
 
+            # Continue marquee during scroll-out
+            is_paused = True
+
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event, seconds_elapsed),
+                        child = render_event(event, seconds_elapsed, is_paused),
                     ),
                 ),
             )
@@ -316,14 +328,16 @@ def generate_event_animation(events, header_height):
 
     return render.Animation(children = frames)
 
-def render_event(event, second_offset):
-    """Render a single event with all text left-aligned within a globally centered group
+def render_event(event, second_offset, is_paused = False):
+    """Render a single event with marquee animation for long text during pause
 
     Args:
         event: Event dictionary with end_timestamp
         second_offset: Number of seconds to subtract from remaining time (for countdown animation)
+        is_paused: Whether event is in pause/scroll-out phase (enables marquee)
 
-    Calculates time remaining at render time for live countdown
+    Calculates time remaining at render time for live countdown.
+    Applies marquee animation to map/event names during pause and scroll-out.
     """
 
     # Calculate time remaining NOW (at render time) for live countdown
@@ -341,35 +355,78 @@ def render_event(event, second_offset):
     else:
         time_str = "ended"
 
-    # Left-align all event information
+    # Get event text
+    map_name = event["map"]
+    event_name = event["name"]
+
+    # During pause and scroll-out: use marquee for scrolling long text
+    # During scroll-in: use static text
+    if is_paused:
+        map_text = render.Marquee(
+            width = SCREEN_WIDTH,
+            offset_start = 0,
+            offset_end = 8,
+            child = render.Text(
+                content = map_name,
+                font = FONT_TOM_THUMB,
+                color = COLOR_WHITE,
+            ),
+            scroll_direction = "horizontal",
+        )
+        event_text = render.Marquee(
+            width = SCREEN_WIDTH,
+            offset_start = 0,
+            offset_end = 8,
+            child = render.Text(
+                content = event_name,
+                font = FONT_CG_PIXEL_3X5,
+                color = COLOR_YELLOW,
+            ),
+            scroll_direction = "horizontal",
+        )
+        time_text = render.Marquee(
+            width = SCREEN_WIDTH,
+            offset_start = 0,
+            offset_end = 8,
+            child = render.Text(
+                content = time_str,
+                font = FONT_CG_PIXEL_3X5,
+                color = COLOR_RED,
+            ),
+            scroll_direction = "horizontal",
+        )
+    else:
+        # During scroll-in: static text
+        map_text = render.Text(
+            content = map_name,
+            font = FONT_TOM_THUMB,
+            color = COLOR_WHITE,
+        )
+        event_text = render.Text(
+            content = event_name,
+            font = FONT_CG_PIXEL_3X5,
+            color = COLOR_YELLOW,
+        )
+        time_text = render.Text(
+            content = time_str,
+            font = FONT_CG_PIXEL_3X5,
+            color = COLOR_RED,
+        )
+
+    # Left-align all event information with 2px left and 2px right padding
     return render.Box(
         width = 64,
         height = EVENT_CONTENT_HEIGHT,
-        child = render.Row(
-            main_align = "start",
-            expanded = True,
-            children = [
-                render.Column(
-                    cross_align = "start",
-                    children = [
-                        render.Text(
-                            content = event["map"],
-                            font = FONT_TOM_THUMB,
-                            color = COLOR_WHITE,
-                        ),
-                        render.Text(
-                            content = event["name"],
-                            font = FONT_CG_PIXEL_3X5,
-                            color = COLOR_YELLOW,
-                        ),
-                        render.Text(
-                            content = time_str,
-                            font = FONT_CG_PIXEL_3X5,
-                            color = COLOR_RED,
-                        ),
-                    ],
-                ),
-            ],
+        child = render.Padding(
+            pad = (2, 0, 2, 0),
+            child = render.Column(
+                cross_align = "start",
+                children = [
+                    map_text,
+                    event_text,
+                    time_text,
+                ],
+            ),
         ),
     )
 
