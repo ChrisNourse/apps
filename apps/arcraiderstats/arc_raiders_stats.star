@@ -265,7 +265,7 @@ def generate_event_animation(events, header_height):
 
             frames.append(
                 render.Box(
-                    width = 64,
+                    width = SCREEN_WIDTH,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
@@ -285,7 +285,7 @@ def generate_event_animation(events, header_height):
 
             frames.append(
                 render.Box(
-                    width = 64,
+                    width = SCREEN_WIDTH,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, header_height, 0, 0),
@@ -308,7 +308,7 @@ def generate_event_animation(events, header_height):
 
             frames.append(
                 render.Box(
-                    width = 64,
+                    width = SCREEN_WIDTH,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
@@ -407,7 +407,7 @@ def render_event(event, second_offset, is_paused = False):
 
     # Left-align all event information with 2px left and 2px right padding
     return render.Box(
-        width = 64,
+        width = SCREEN_WIDTH,
         height = EVENT_CONTENT_HEIGHT,
         child = render.Padding(
             pad = (2, 0, 2, 0),
@@ -456,7 +456,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
         player_text = format_number(player_count) if player_count != None else "N/A"
         header_children.append(
             render.Box(
-                width = 64,
+                width = SCREEN_WIDTH,
                 height = PLAYER_COUNT_HEIGHT,
                 child = render.Padding(
                     pad = (1, 0, 0, 0),
@@ -496,7 +496,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
                 message_color = COLOR_CYAN
 
             events_layer = render.Box(
-                width = 64,
+                width = SCREEN_WIDTH,
                 height = 32,
                 child = render.Padding(
                     pad = (0, 0, 0, 0),
@@ -519,7 +519,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
                 children = [
                     events_layer,  # Background: scrolling events
                     render.Box(
-                        width = 64,
+                        width = SCREEN_WIDTH,
                         height = header_height,
                         color = COLOR_BLACK,
                         child = render.Column(children = header_children),  # Foreground: fixed header with opaque background
