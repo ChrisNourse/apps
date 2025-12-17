@@ -49,6 +49,7 @@ FONT_CG_PIXEL_3X5 = "CG-pixel-3x5-mono"
 
 # Screen constants
 SCREEN_WIDTH = 64  # Display width in pixels
+PLAYER_COUNT_HEIGHT = 6  # Height of player count display in pixels
 
 def main(config):
     show_player_count = config.bool("show_player_count", True)
@@ -454,7 +455,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
     # Calculate header height (logo + optional player count)
     header_height = 8  # Logo height
     if show_player_count:
-        header_height += 6  # Player count height
+        header_height += PLAYER_COUNT_HEIGHT
 
     # Create header overlay (title and player count)
     header_children = []
@@ -465,7 +466,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
         header_children.append(
             render.Box(
                 width = 64,
-                height = 6,
+                height = PLAYER_COUNT_HEIGHT,
                 child = render.Padding(
                     pad = (1, 0, 0, 0),
                     child = render.Row(
@@ -507,7 +508,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
                 width = 64,
                 height = 32,
                 child = render.Padding(
-                    pad = (header_height + 2, 0, 0, 0),
+                    pad = (0, 0, 0, 0),
                     child = render.WrappedText(
                         content = message,
                         font = FONT_TOM_THUMB,
