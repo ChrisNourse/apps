@@ -252,53 +252,67 @@ def generate_event_animation(events, header_height):
     frames = []
     full_height = 32  # Events use full screen height (32px)
 
+    # Track total frame count for continuous countdown across all animations
+    total_frame_count = 0
+
     for _, event in enumerate(events):
         # Scroll in: create frames that slide the event into view from bottom
         for step in range(ANIMATION_SCROLL_STEPS + 1):
             # Start completely below screen (full_height + EVENT_CONTENT_HEIGHT), end at header_height
             start_offset = full_height + EVENT_CONTENT_HEIGHT
             offset = start_offset + (header_height - start_offset) * step // ANIMATION_SCROLL_STEPS
+
+            # Calculate seconds elapsed based on total frames
+            seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
+
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event, 0),
+                        child = render_event(event, seconds_elapsed),
                     ),
                 ),
             )
+            total_frame_count += 1
 
         # Pause: display event with live countdown
-        # Generate frames with countdown updating every FRAMES_PER_SECOND frames
         for frame_num in range(ANIMATION_PAUSE_FRAMES):
-            # Calculate which second this frame represents
-            second_offset = frame_num // FRAMES_PER_SECOND
+            # Calculate seconds elapsed based on total frames
+            seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
+
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, header_height, 0, 0),
-                        child = render_event(event, second_offset),
+                        child = render_event(event, seconds_elapsed),
                     ),
                 ),
             )
+            total_frame_count += 1
 
         # Scroll out: slide event out of view upward
         for step in range(1, ANIMATION_SCROLL_STEPS + 1):
             # Move from header_height up to negative (off screen top)
             offset = header_height - (header_height + EVENT_CONTENT_HEIGHT) * step // ANIMATION_SCROLL_STEPS
+
+            # Calculate seconds elapsed based on total frames
+            seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
+
             frames.append(
                 render.Box(
                     width = 64,
                     height = full_height,
                     child = render.Padding(
                         pad = (0, offset, 0, 0),
-                        child = render_event(event, 0),
+                        child = render_event(event, seconds_elapsed),
                     ),
                 ),
             )
+            total_frame_count += 1
 
     return render.Animation(children = frames)
 
@@ -317,20 +331,22 @@ def render_event(event, second_offset):
     end_timestamp = event.get("end_timestamp", 0)
     remaining_seconds = end_timestamp - int(now.unix) - second_offset
 
-    # Format as "ends in Xm Xs"
+    # Format as "XXmin XXsec" with zero-padded two digits
     if remaining_seconds > 0:
         minutes = remaining_seconds // 60
         seconds = remaining_seconds % 60
-        time_str = "ends in {}m {}s".format(minutes, seconds)
+        min_str = "0" + str(minutes) if minutes < 10 else str(minutes)
+        sec_str = "0" + str(seconds) if seconds < 10 else str(seconds)
+        time_str = "ends in {}m {}s".format(min_str, sec_str)
     else:
         time_str = "ended"
 
-    # Wrap the column in a Box to globally center it while keeping text left-aligned within
+    # Left-align all event information
     return render.Box(
         width = 64,
         height = EVENT_CONTENT_HEIGHT,
         child = render.Row(
-            main_align = "center",
+            main_align = "start",
             expanded = True,
             children = [
                 render.Column(
