@@ -503,13 +503,10 @@ def render_display(player_count, current_events, show_player_count, show_events,
             events_layer = render.Box(
                 width = SCREEN_WIDTH,
                 height = 32,
-                child = render.Padding(
-                    pad = (0, 0, 0, 0),
-                    child = render.WrappedText(
-                        content = message,
-                        font = FONT_TOM_THUMB,
-                        color = message_color,
-                    ),
+                child = render.WrappedText(
+                    content = message,
+                    font = FONT_TOM_THUMB,
+                    color = message_color,
                 ),
             )
 
