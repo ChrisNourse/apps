@@ -32,9 +32,9 @@ EVENTS_CACHE_TTL = 60  # 1 minute (manual cache with event expiration validation
 
 # Animation constants
 ANIMATION_SCROLL_STEPS = 10  # Number of frames for scroll in/out animation
-ANIMATION_PAUSE_FRAMES = 30  # Frames to pause (30 frames at 100ms = 3 seconds)
 EVENT_CONTENT_HEIGHT = 18  # Height of event content (3 lines of text)
 FRAMES_PER_SECOND = 10  # At 100ms per frame, update countdown every 10 frames (1 second)
+REFRESH_INTERVAL_MS = 15000  # Tidbyt refresh interval in milliseconds (from manifest.yaml)
 
 # Scroll speed mapping (in milliseconds)
 SCROLL_SPEED_MAP = {
@@ -96,6 +96,7 @@ def get_current_events():
     Note: Arc Raiders events are global - they happen at the same UTC time for everyone.
     Time remaining is calculated in UTC and is the same for all players worldwide.
     """
+
     cached_data = cache.get("arc_raiders_events")
     if cached_data != None:
         events = json.decode(cached_data)
@@ -232,18 +233,65 @@ def is_event_active(current_hour, current_minute, start_time, end_time):
 
     return start_minutes <= current_minutes and current_minutes < end_minutes
 
-def generate_event_animation(events, header_height):
+def calculate_pause_frames(num_events, frame_delay_ms):
+    """Calculate optimal pause frames based on number of events and scroll speed
+
+    Ensures the total animation duration fits within the refresh interval while
+    giving each event enough pause time to be readable.
+
+    Args:
+        num_events: Number of events to display
+        frame_delay_ms: Delay per frame in milliseconds
+
+    Returns:
+        Number of pause frames per event
+    """
+    if num_events == 0:
+        return 30  # Default fallback
+
+    # Calculate frames per event for scroll in/out
+    scroll_frames_per_event = (ANIMATION_SCROLL_STEPS + 1) + ANIMATION_SCROLL_STEPS
+
+    # Calculate total available frames in refresh interval
+    total_available_frames = REFRESH_INTERVAL_MS // frame_delay_ms
+
+    # Reserve 10% buffer to ensure animation completes before refresh
+    total_available_frames = int(total_available_frames * 0.9)
+
+    # Calculate frames available for pausing across all events
+    total_scroll_frames = num_events * scroll_frames_per_event
+    available_pause_frames = total_available_frames - total_scroll_frames
+
+    # Distribute pause frames evenly across events
+    pause_frames_per_event = available_pause_frames // num_events
+
+    # Ensure minimum pause time for readability (at least 1 second worth of frames)
+    min_pause_frames = max(10, 1000 // frame_delay_ms)
+
+    # Ensure maximum pause time isn't too long
+    max_pause_frames = 50
+
+    # Clamp to reasonable range
+    pause_frames_per_event = max(min_pause_frames, min(pause_frames_per_event, max_pause_frames))
+
+    return pause_frames_per_event
+
+def generate_event_animation(events, header_height, frame_delay_ms):
     """Generate animation frames for events with scroll-pause-scroll effect and live countdown
 
     Args:
         events: List of event dictionaries
         header_height: Height of the header section in pixels
+        frame_delay_ms: Delay per frame in milliseconds (for calculating pause duration)
 
     Returns:
         render.Animation with frames for all events
     """
     frames = []
     full_height = 32  # Events use full screen height (32px)
+
+    # Calculate optimal pause frames based on event count and scroll speed
+    pause_frames = calculate_pause_frames(len(events), frame_delay_ms)
 
     # Track total frame count for continuous countdown across all animations
     total_frame_count = 0
@@ -274,7 +322,7 @@ def generate_event_animation(events, header_height):
             total_frame_count += 1
 
         # Pause: display event with live countdown and marquee for long text
-        for _ in range(ANIMATION_PAUSE_FRAMES):
+        for _ in range(pause_frames):
             # Calculate seconds elapsed based on total frames
             seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
 
@@ -533,12 +581,15 @@ def render_display(player_count, current_events, show_player_count, show_events,
             ),
         )
 
+    # Map scroll speed to delay value
+    delay = SCROLL_SPEED_MAP.get(scroll_speed, 100)
+
     # Create events background layer
     events_layer = None
     if show_events:
         if len(current_events) > 0:
-            # Generate animation frames for events
-            events_layer = generate_event_animation(current_events, header_height)
+            # Generate animation frames for events with dynamic pause calculation
+            events_layer = generate_event_animation(current_events, header_height, delay)
         else:
             # Show different message for API error vs no events
             if events_error:
@@ -557,9 +608,6 @@ def render_display(player_count, current_events, show_player_count, show_events,
                     color = message_color,
                 ),
             )
-
-    # Map scroll speed to delay value
-    delay = SCROLL_SPEED_MAP.get(scroll_speed, 100)
 
     # Use Stack to overlay header on top of events
     if show_events and events_layer:
