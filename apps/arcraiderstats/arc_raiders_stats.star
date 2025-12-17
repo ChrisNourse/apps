@@ -259,7 +259,7 @@ def generate_event_animation(events, header_height):
     # Track total frame count for continuous countdown across all animations
     total_frame_count = 0
 
-    for _, event in enumerate(events):
+    for event in events:
         # Scroll in: create frames that slide the event into view from bottom
         for step in range(ANIMATION_SCROLL_STEPS + 1):
             # Start completely below screen (full_height + EVENT_CONTENT_HEIGHT), end at header_height
