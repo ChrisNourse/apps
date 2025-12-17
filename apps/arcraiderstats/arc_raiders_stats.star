@@ -203,7 +203,7 @@ def get_current_events():
     return active_events
 
 def parse_time(time_str):
-    """Parse time string like '14:00' into hour and minute"""
+    """Parse time string like '14:00' into hour and minute with validation"""
     if not time_str or ":" not in time_str:
         return None
 
@@ -213,6 +213,11 @@ def parse_time(time_str):
 
     hour = int(parts[0])
     minute = int(parts[1]) if parts[1] else 0
+
+    # Validate hour (0-23) and minute (0-59) ranges
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        return None
+
     return {"hour": hour, "minute": minute}
 
 def time_to_minutes(hour, minute):
@@ -489,7 +494,7 @@ def render_display(player_count, current_events, show_player_count, show_events,
         else:
             # Show different message for API error vs no events
             if events_error:
-                message = "API Error"
+                message = "API Error: Invalid data"
                 message_color = COLOR_RED
             else:
                 message = "No active events"
