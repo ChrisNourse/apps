@@ -99,6 +99,7 @@ def get_current_events():
     cached_data = cache.get("arc_raiders_events")
     if cached_data != None:
         events = json.decode(cached_data)
+
         # Validate cached data - check if any end_timestamp is in the past
         now_utc = time.now().in_location("UTC")
         valid = True
@@ -273,7 +274,7 @@ def generate_event_animation(events, header_height):
             total_frame_count += 1
 
         # Pause: display event with live countdown and marquee for long text
-        for pause_frame_num in range(ANIMATION_PAUSE_FRAMES):
+        for _ in range(ANIMATION_PAUSE_FRAMES):
             # Calculate seconds elapsed based on total frames
             seconds_elapsed = total_frame_count // FRAMES_PER_SECOND
 
@@ -480,6 +481,7 @@ def format_number(num):
 
     if num >= 1000:
         thousands = num / 1000.0
+
         # Round to 1 decimal place by multiplying by 10, converting to int, then dividing by 10
         rounded = int(thousands * 10) / 10.0
         formatted = str(rounded)
