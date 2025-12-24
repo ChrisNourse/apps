@@ -791,34 +791,13 @@ def main(config):
     current_events = []
     events_error = False
     if show_events:
-        # TEST DATA: Use hardcoded long text for testing horizontal scroll
-        now_utc = time.now().in_location("UTC")
-        current_events = [
-            {
-                "name": "Supply Drop Incoming Event",
-                "map": "Northern Manufacturing District",
-                "end_timestamp": int(now_utc.unix) + 3600,  # 60 min from now
-            },
-            {
-                "name": "Emergency Extraction Zone Active",
-                "map": "Eastern Wasteland Territory",
-                "end_timestamp": int(now_utc.unix) + 5400,  # 90 min from now
-            },
-            {
-                "name": "Boss",
-                "map": "South",
-                "end_timestamp": int(now_utc.unix) + 2700,  # 45 min from now
-            },
-        ]
-
-        # # PRODUCTION: Comment out test data and use real API
-        # events_result = get_current_events()
-        # if events_result == None:
-        #     # API error occurred
-        #     events_error = True
-        #     current_events = []
-        # else:
-        #     current_events = events_result
+        events_result = get_current_events()
+        if events_result == None:
+            # API error occurred
+            events_error = True
+            current_events = []
+        else:
+            current_events = events_result
 
     return render_display(player_count, current_events, show_player_count, show_events, display_time_seconds, events_error)
 
